@@ -1,11 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { RotateCcw, ChevronLeft, ChevronRight, LayoutGrid, Layers } from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
+import {
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight,
+  LayoutGrid,
+  Layers,
+  Check,
+  Repeat,
+  AlarmClock,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { markVocab } from "@/app/tu-vung/actions";
 
 interface VocabItem {
   id: string;
@@ -17,25 +27,62 @@ interface VocabItem {
   topic: string | null;
 }
 
-export function VocabStudy({ items }: { items: VocabItem[] }) {
+interface VocabStudyProps {
+  items: VocabItem[];
+  reviewMap?: Record<string, { box: number; due: boolean }>;
+  dueCount?: number;
+  loggedIn?: boolean;
+}
+
+export function VocabStudy({
+  items,
+  reviewMap = {},
+  dueCount = 0,
+  loggedIn = false,
+}: VocabStudyProps) {
   const levels = useMemo(
     () => Array.from(new Set(items.map((i) => i.level))).sort(),
     [items]
   );
   const [level, setLevel] = useState<number | "ALL">("ALL");
   const [mode, setMode] = useState<"card" | "list">("card");
+  const [dueOnly, setDueOnly] = useState(false);
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const [marked, setMarked] = useState<Record<string, "known" | "review">>({});
 
   const filtered = useMemo(
-    () => items.filter((i) => level === "ALL" || i.level === level),
-    [items, level]
+    () =>
+      items.filter((i) => {
+        if (level !== "ALL" && i.level !== level) return false;
+        if (dueOnly) {
+          const r = reviewMap[i.id];
+          // chưa học lần nào hoặc đã đến hạn
+          if (r && !r.due) return false;
+        }
+        return true;
+      }),
+    [items, level, dueOnly, reviewMap]
   );
+
+  function mark(vocabId: string, result: "known" | "review") {
+    setMarked((m) => ({ ...m, [vocabId]: result }));
+    startTransition(async () => {
+      await markVocab(vocabId, result);
+    });
+  }
 
   const v = filtered[index % Math.max(1, filtered.length)];
 
   function changeLevel(l: number | "ALL") {
     setLevel(l);
+    setIndex(0);
+    setFlipped(false);
+  }
+
+  function toggleDueOnly() {
+    setDueOnly((d) => !d);
     setIndex(0);
     setFlipped(false);
   }
@@ -62,7 +109,13 @@ export function VocabStudy({ items }: { items: VocabItem[] }) {
             </Button>
           ))}
         </div>
-        <div className="ml-auto flex gap-1.5">
+        <div className="ml-auto flex flex-wrap gap-1.5">
+          {loggedIn && (
+            <Button size="sm" variant={dueOnly ? "default" : "outline"} onClick={toggleDueOnly}>
+              <AlarmClock className="size-4" /> Cần ôn hôm nay
+              <Badge variant="secondary" className="ml-1">{dueCount}</Badge>
+            </Button>
+          )}
           <Button size="sm" variant={mode === "card" ? "default" : "outline"} onClick={() => setMode("card")}>
             <Layers className="size-4" /> Flashcard
           </Button>
@@ -71,6 +124,13 @@ export function VocabStudy({ items }: { items: VocabItem[] }) {
           </Button>
         </div>
       </div>
+
+      {!loggedIn && (
+        <p className="text-sm text-muted-foreground">
+          💡 <a href="/dang-nhap?callbackUrl=/tu-vung" className="font-medium text-primary underline-offset-4 hover:underline">Đăng nhập</a>{" "}
+          để lưu tiến độ và được nhắc ôn lại từ đã học (spaced repetition).
+        </p>
+      )}
 
       {filtered.length === 0 ? (
         <Card>
@@ -123,6 +183,29 @@ export function VocabStudy({ items }: { items: VocabItem[] }) {
               Tiếp <ChevronRight className="size-4" />
             </Button>
           </div>
+          {loggedIn && (
+            <div className="flex items-center justify-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pending}
+                onClick={() => mark(v.id, "review")}
+                className={cn(marked[v.id] === "review" && "border-amber-500 text-amber-600")}
+              >
+                <Repeat className="size-4" /> Cần ôn
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pending}
+                onClick={() => mark(v.id, "known")}
+                className={cn(marked[v.id] === "known" && "border-emerald-500 text-emerald-600")}
+              >
+                <Check className="size-4" /> Đã thuộc
+              </Button>
+            </div>
+          )}
+
           <div className="text-center">
             <Button variant="ghost" size="sm" onClick={() => setFlipped((f) => !f)}>
               <RotateCcw className="size-4" /> Lật thẻ
