@@ -1,0 +1,79 @@
+import Link from "next/link";
+import { GraduationCap, Shield } from "lucide-react";
+import { auth, signOut } from "@/auth";
+import { Button } from "@/components/ui/button";
+
+const NAV = [
+  { href: "/luyen-tap", label: "Luyện tập" },
+  { href: "/thi-thu", label: "Đề thi" },
+  { href: "/tu-vung", label: "Từ vựng" },
+  { href: "/ngu-phap", label: "Ngữ pháp" },
+  { href: "/lo-trinh", label: "Lộ trình" },
+];
+
+export async function SiteHeader() {
+  const session = await auth();
+
+  return (
+    <header className="sticky top-0 z-40 w-full border-b bg-background/80 backdrop-blur">
+      <div className="container flex h-16 items-center justify-between gap-4">
+        <Link href="/" className="flex items-center gap-2 font-bold text-lg">
+          <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            <GraduationCap className="size-5" />
+          </span>
+          <span>
+            TOPIK<span className="text-primary">Mate</span>
+          </span>
+        </Link>
+
+        <nav className="hidden items-center gap-1 md:flex">
+          {NAV.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="flex items-center gap-2">
+          {session?.user ? (
+            <>
+              {(session.user as { role?: string }).role === "ADMIN" && (
+                <Button asChild variant="outline" size="sm">
+                  <Link href="/admin">
+                    <Shield className="size-4" /> Quản trị
+                  </Link>
+                </Button>
+              )}
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/tai-khoan">{session.user.name || "Tài khoản"}</Link>
+              </Button>
+              <form
+                action={async () => {
+                  "use server";
+                  await signOut({ redirectTo: "/" });
+                }}
+              >
+                <Button type="submit" variant="outline" size="sm">
+                  Đăng xuất
+                </Button>
+              </form>
+            </>
+          ) : (
+            <>
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/dang-nhap">Đăng nhập</Link>
+              </Button>
+              <Button asChild size="sm">
+                <Link href="/dang-ky">Đăng ký</Link>
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    </header>
+  );
+}

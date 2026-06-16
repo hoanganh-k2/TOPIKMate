@@ -1,0 +1,115 @@
+// Prisma schema cho TOPIKMate (v1 — chỉ TOPIK II)
+// Đổi sang Postgres sau này: chỉ cần đổi provider + DATABASE_URL.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String?
+  passwordHash String
+  role         String    @default("USER") // "USER" | "ADMIN"
+  createdAt    DateTime  @default(now())
+  attempts     Attempt[]
+}
+
+// Một đề thi thử TOPIK II hoàn chỉnh.
+model Exam {
+  id          String    @id @default(cuid())
+  title       String
+  targetLevel Int? // cấp độ mục tiêu 3-6 (TOPIK II); null nếu đề tổng hợp
+  description String?
+  isSample    Boolean   @default(false) // true = dữ liệu mẫu (demo), thay bằng đề thật sau
+  createdAt   DateTime  @default(now())
+  sections    Section[]
+  attempts    Attempt[]
+}
+
+// SQLite không hỗ trợ enum → dùng String.
+// SectionType: "LISTENING" | "READING" | "WRITING"
+model Section {
+  id          String     @id @default(cuid())
+  exam        Exam       @relation(fields: [examId], references: [id], onDelete: Cascade)
+  examId      String
+  type        String // "LISTENING" | "READING" | "WRITING"
+  order       Int        @default(0)
+  durationSec Int        @default(3000) // thời lượng phần (giây)
+  questions   Question[]
+}
+
+model Question {
+  id          String         @id @default(cuid())
+  section     Section        @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  sectionId   String
+  order       Int            @default(0)
+  type        String         @default("MULTIPLE_CHOICE") // "MULTIPLE_CHOICE" | "WRITING"
+  prompt      String // đề bài (tiếng Hàn)
+  passage     String? // đoạn đọc / hội thoại (nếu có)
+  audioUrl    String? // file nghe (nếu có)
+  imageUrl    String? // hình minh hoạ (nếu có)
+  points      Int            @default(2)
+  explanation String? // giải thích đáp án (tiếng Việt)
+  topic       String? // chủ đề/nhãn dạng câu hỏi (để lọc khi luyện tập)
+  choices     Choice[]
+  answers     AttemptAnswer[]
+}
+
+model Choice {
+  id         String         @id @default(cuid())
+  question   Question       @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  questionId String
+  label      String // "1" | "2" | "3" | "4" hoặc "A".."D"
+  content    String
+  isCorrect  Boolean        @default(false)
+  answers    AttemptAnswer[]
+}
+
+model Attempt {
+  id          String          @id @default(cuid())
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  exam        Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
+  examId      String
+  startedAt   DateTime        @default(now())
+  submittedAt DateTime?
+  score       Int             @default(0)
+  maxScore    Int             @default(0)
+  answers     AttemptAnswer[]
+}
+
+model AttemptAnswer {
+  id         String   @id @default(cuid())
+  attempt    Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  attemptId  String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  questionId String
+  choice     Choice?  @relation(fields: [choiceId], references: [id])
+  choiceId   String?
+  textAnswer String? // câu trả lời tự luận (phần Viết)
+  isCorrect  Boolean  @default(false)
+}
+
+model Vocab {
+  id        String @id @default(cuid())
+  level     Int    @default(3) // cấp độ TOPIK
+  korean    String
+  reading   String? // phiên âm / cách đọc
+  meaningVi String // nghĩa tiếng Việt
+  example   String? // ví dụ (tiếng Hàn)
+  topic     String?
+}
+
+model Grammar {
+  id        String @id @default(cuid())
+  level     Int    @default(3)
+  pattern   String // mẫu ngữ pháp (tiếng Hàn)
+  meaningVi String // ý nghĩa/cách dùng (tiếng Việt)
+  example   String? // ví dụ
+}

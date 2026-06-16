@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(node -v)",
+      "PowerShell(npm -v)",
+      "PowerShell(npx prisma generate 2>&1)",
+      "PowerShell(npx prisma migrate dev --name init 2>&1)",
+      "PowerShell(npm run build 2>&1)",
+      "PowerShell(npm run dev)",
+      "mcp__chrome-devtools__new_page",
+      "mcp__chrome-devtools__take_snapshot",
+      "mcp__chrome-devtools__take_screenshot",
+      "mcp__chrome-devtools__navigate_page",
+      "mcp__chrome-devtools__fill_form",
+      "mcp__chrome-devtools__click",
+      "mcp__chrome-devtools__list_console_messages",
+      "PowerShell(npx prisma migrate dev --name add_user_role 2>&1)",
+      "PowerShell(npm run db:seed 2>&1)",
+      "PowerShell($dir = \"$env:TEMP\\\\topik-test\"; New-Item -ItemType Directory -Force -Path $dir | Out-Null; [IO.File]::WriteAllBytes\\(\"$dir\\\\test.mp3\", [byte[]]\\(0xFF,0xFB,0x90,0x44,0,0,0,0,0,0,0,0,0,0,0,0\\)\\); $png=[Convert]::FromBase64String\\(\"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==\"\\); [IO.File]::WriteAllBytes\\(\"$dir\\\\test.png\", $png\\); Get-ChildItem $dir | Select-Object Name,Length)",
+      "mcp__chrome-devtools__upload_file"
+    ]
+  }
+}
