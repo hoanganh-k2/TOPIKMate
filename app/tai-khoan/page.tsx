@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { ScoreChart, type ScorePoint } from "@/components/score-chart";
+import { SECTION_LABEL } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +20,10 @@ export default async function AccountPage() {
   const attempts = await prisma.attempt.findMany({
     where: { userId },
     orderBy: { startedAt: "desc" },
-    include: { exam: { select: { title: true, targetLevel: true } } },
+    include: {
+      exam: { select: { title: true, targetLevel: true } },
+      answers: { include: { question: { include: { section: true } } } },
+    },
   });
 
   const totalAttempts = attempts.length;
@@ -33,6 +38,52 @@ export default async function AccountPage() {
           0
         ) / totalAttempts
       : 0;
+
+  // Dữ liệu biểu đồ: theo thứ tự thời gian tăng dần.
+  const chartData: ScorePoint[] = [...attempts]
+    .filter((a) => a.maxScore > 0)
+    .reverse()
+    .map((a) => ({
+      label: new Date(a.startedAt).toLocaleDateString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+      }),
+      percent: Math.round((a.score / a.maxScore) * 100),
+    }));
+
+  // Phân tích điểm mạnh/yếu theo phần (Nghe/Đọc) và theo dạng câu (topic) —
+  // chỉ tính câu trắc nghiệm (có đúng/sai).
+  const sectionStats: Record<string, { correct: number; total: number }> = {};
+  const topicStats: Record<string, { correct: number; total: number }> = {};
+  for (const a of attempts) {
+    for (const ans of a.answers) {
+      if (ans.question.type === "WRITING") continue;
+      const sType = ans.question.section.type;
+      const s = (sectionStats[sType] ??= { correct: 0, total: 0 });
+      s.total++;
+      if (ans.isCorrect) s.correct++;
+      const topic = ans.question.topic;
+      if (topic) {
+        const t = (topicStats[topic] ??= { correct: 0, total: 0 });
+        t.total++;
+        if (ans.isCorrect) t.correct++;
+      }
+    }
+  }
+  const sectionRows = Object.entries(sectionStats).map(([type, v]) => ({
+    label: SECTION_LABEL[type] ?? type,
+    percent: v.total > 0 ? Math.round((v.correct / v.total) * 100) : 0,
+    correct: v.correct,
+    total: v.total,
+  }));
+  const topicRows = Object.entries(topicStats)
+    .map(([topic, v]) => ({
+      label: topic,
+      percent: v.total > 0 ? Math.round((v.correct / v.total) * 100) : 0,
+      correct: v.correct,
+      total: v.total,
+    }))
+    .sort((a, b) => a.percent - b.percent); // yếu nhất lên đầu
 
   return (
     <div className="container py-12">
@@ -77,6 +128,64 @@ export default async function AccountPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Biểu đồ điểm theo thời gian */}
+      {chartData.length >= 2 && (
+        <Card className="mb-10">
+          <CardHeader>
+            <CardTitle>Điểm theo thời gian</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ScoreChart data={chartData} />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Điểm mạnh / yếu */}
+      {(sectionRows.length > 0 || topicRows.length > 0) && (
+        <div className="mb-10 grid gap-4 lg:grid-cols-2">
+          {sectionRows.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Tỉ lệ đúng theo phần</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {sectionRows.map((r) => (
+                  <div key={r.label}>
+                    <div className="mb-1 flex justify-between text-sm">
+                      <span className="font-medium">{r.label}</span>
+                      <span className="text-muted-foreground">
+                        {r.correct}/{r.total} ({r.percent}%)
+                      </span>
+                    </div>
+                    <Progress value={r.percent} />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+          {topicRows.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Theo dạng câu (yếu nhất trước)</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {topicRows.slice(0, 8).map((r) => (
+                  <div key={r.label}>
+                    <div className="mb-1 flex justify-between text-sm">
+                      <span className="font-medium">{r.label}</span>
+                      <span className="text-muted-foreground">
+                        {r.correct}/{r.total} ({r.percent}%)
+                      </span>
+                    </div>
+                    <Progress value={r.percent} />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       {/* Lịch sử */}
       <Card>

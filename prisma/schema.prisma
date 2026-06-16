@@ -18,6 +18,7 @@ model User {
   role         String    @default("USER") // "USER" | "ADMIN"
   createdAt    DateTime  @default(now())
   attempts     Attempt[]
+  vocabReviews VocabReview[]
 }
 
 // Một đề thi thử TOPIK II hoàn chỉnh.
@@ -94,6 +95,8 @@ model AttemptAnswer {
   choiceId   String?
   textAnswer String? // câu trả lời tự luận (phần Viết)
   isCorrect  Boolean  @default(false)
+  aiScore    Int? // điểm AI chấm cho câu Viết (null nếu chưa/không chấm)
+  aiFeedback String? // nhận xét AI (JSON: strengths/weaknesses/suggestion)
 }
 
 model Vocab {
@@ -104,6 +107,21 @@ model Vocab {
   meaningVi String // nghĩa tiếng Việt
   example   String? // ví dụ (tiếng Hàn)
   topic     String?
+  reviews   VocabReview[]
+}
+
+// Tiến độ ôn từ vựng theo phương pháp Leitner (spaced repetition).
+model VocabReview {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  vocab     Vocab    @relation(fields: [vocabId], references: [id], onDelete: Cascade)
+  vocabId   String
+  box       Int      @default(1) // hộp Leitner 1..5
+  dueAt     DateTime @default(now()) // đến hạn ôn lại
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, vocabId])
 }
 
 model Grammar {

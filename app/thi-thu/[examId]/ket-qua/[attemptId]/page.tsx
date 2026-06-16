@@ -10,6 +10,21 @@ import { cn, SECTION_LABEL } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
+interface WritingFeedback {
+  strengths?: string;
+  weaknesses?: string;
+  suggestion?: string;
+}
+
+function parseFeedback(raw: string | null | undefined): WritingFeedback | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as WritingFeedback;
+  } catch {
+    return null;
+  }
+}
+
 export default async function ResultPage({
   params,
 }: {
@@ -51,7 +66,7 @@ export default async function ResultPage({
             {attempt.score}
             <span className="text-2xl text-muted-foreground"> / {attempt.maxScore} điểm</span>
           </div>
-          <p className="mt-2 text-muted-foreground">Đúng {percent}% câu trắc nghiệm</p>
+          <p className="mt-2 text-muted-foreground">Đạt {percent}% tổng điểm</p>
           <div className="mt-6 flex justify-center gap-3">
             <Button asChild variant="outline">
               <Link href="/thi-thu">Đề thi khác</Link>
@@ -107,14 +122,44 @@ export default async function ResultPage({
                       )}
 
                       {isWriting ? (
-                        <div className="rounded-lg border bg-muted/30 p-3 text-sm">
-                          <p className="mb-1 font-medium">Câu trả lời của bạn:</p>
-                          <p className="whitespace-pre-line text-muted-foreground">
-                            {ans?.textAnswer || "(Chưa trả lời)"}
-                          </p>
-                          <p className="mt-2 text-xs text-muted-foreground">
-                            * Phần Viết cần được tự đánh giá hoặc giáo viên chấm.
-                          </p>
+                        <div className="space-y-3">
+                          <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+                            <p className="mb-1 font-medium">Câu trả lời của bạn:</p>
+                            <p className="whitespace-pre-line text-muted-foreground">
+                              {ans?.textAnswer || "(Chưa trả lời)"}
+                            </p>
+                          </div>
+                          {(() => {
+                            const fb = parseFeedback(ans?.aiFeedback);
+                            if (ans?.aiScore == null && !fb) {
+                              return (
+                                <p className="text-xs text-muted-foreground">
+                                  * Phần Viết chưa được chấm bằng AI (chưa cấu hình GROQ_API_KEY) — cần tự đánh giá hoặc giáo viên chấm.
+                                </p>
+                              );
+                            }
+                            return (
+                              <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+                                <div className="flex items-center gap-2">
+                                  <Badge>AI chấm</Badge>
+                                  {ans?.aiScore != null && (
+                                    <span className="font-semibold">
+                                      {ans.aiScore} / {question.points} điểm
+                                    </span>
+                                  )}
+                                </div>
+                                {fb?.strengths && (
+                                  <p><span className="font-medium text-emerald-600">Điểm mạnh: </span>{fb.strengths}</p>
+                                )}
+                                {fb?.weaknesses && (
+                                  <p><span className="font-medium text-amber-600">Cần cải thiện: </span>{fb.weaknesses}</p>
+                                )}
+                                {fb?.suggestion && (
+                                  <p><span className="font-medium text-primary">Gợi ý: </span>{fb.suggestion}</p>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
                       ) : (
                         <div className="space-y-2">
