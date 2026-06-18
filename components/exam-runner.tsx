@@ -53,30 +53,65 @@ export function ExamRunner({ exam }: { exam: Exam }) {
     [exam]
   );
 
+  // Lưu tiến độ làm bài vào localStorage để không mất khi tải lại trang/mất mạng.
+  const storageKey = `topikmate:exam:${exam.id}`;
+
+  function loadSaved(): {
+    answers?: Record<string, string>;
+    texts?: Record<string, string>;
+    deadline?: number;
+  } | null {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = localStorage.getItem(storageKey);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
   const [current, setCurrent] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string>>({}); // qId -> choiceId
-  const [texts, setTexts] = useState<Record<string, string>>({}); // qId -> textAnswer
-  const [remaining, setRemaining] = useState(totalSeconds);
+  const [answers, setAnswers] = useState<Record<string, string>>(
+    () => loadSaved()?.answers ?? {}
+  ); // qId -> choiceId
+  const [texts, setTexts] = useState<Record<string, string>>(
+    () => loadSaved()?.texts ?? {}
+  ); // qId -> textAnswer
+  // Mốc kết thúc (ms): tính một lần khi bắt đầu; giữ nguyên qua các lần tải lại.
+  const [deadline] = useState<number>(
+    () => loadSaved()?.deadline ?? Date.now() + totalSeconds * 1000
+  );
+  const [remaining, setRemaining] = useState(() =>
+    Math.max(0, Math.round((deadline - Date.now()) / 1000))
+  );
   const [submitting, setSubmitting] = useState(false);
   const submittedRef = useRef(false);
 
   const q = flat[current];
 
-  // Đồng hồ đếm ngược — tự nộp khi hết giờ.
+  // Đồng hồ: tính lại từ `deadline` mỗi giây (đúng cả khi vừa tải lại). Tự nộp khi hết giờ.
   useEffect(() => {
     const id = setInterval(() => {
-      setRemaining((r) => {
-        if (r <= 1) {
-          clearInterval(id);
-          void submit();
-          return 0;
-        }
-        return r - 1;
-      });
+      const r = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+      setRemaining(r);
+      if (r <= 0) {
+        clearInterval(id);
+        void submit();
+      }
     }, 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Ghi lại tiến độ mỗi khi đáp án thay đổi.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(storageKey, JSON.stringify({ answers, texts, deadline }));
+    } catch {
+      // bỏ qua nếu localStorage không khả dụng
+    }
+  }, [answers, texts, deadline, storageKey]);
 
   async function submit() {
     if (submittedRef.current) return;
@@ -105,6 +140,11 @@ export function ExamRunner({ exam }: { exam: Exam }) {
       return;
     }
     const data = await res.json();
+    try {
+      localStorage.removeItem(storageKey);
+    } catch {
+      // bỏ qua
+    }
     router.push(`/thi-thu/${exam.id}/ket-qua/${data.attemptId}`);
   }
 

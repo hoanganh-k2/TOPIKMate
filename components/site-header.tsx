@@ -2,14 +2,8 @@ import Link from "next/link";
 import { GraduationCap, Shield } from "lucide-react";
 import { auth, signOut } from "@/auth";
 import { Button } from "@/components/ui/button";
-
-const NAV = [
-  { href: "/luyen-tap", label: "Luyện tập" },
-  { href: "/thi-thu", label: "Đề thi" },
-  { href: "/tu-vung", label: "Từ vựng" },
-  { href: "/ngu-phap", label: "Ngữ pháp" },
-  { href: "/lo-trinh", label: "Lộ trình" },
-];
+import { MobileNav } from "@/components/mobile-nav";
+import { NAV } from "@/lib/nav";
 
 export async function SiteHeader() {
   const session = await auth();
@@ -17,14 +11,17 @@ export async function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/80 backdrop-blur">
       <div className="container flex h-16 items-center justify-between gap-4">
-        <Link href="/" className="flex items-center gap-2 font-bold text-lg">
+        <div className="flex items-center gap-1">
+          <MobileNav />
+          <Link href="/" className="flex items-center gap-2 font-bold text-lg">
           <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <GraduationCap className="size-5" />
           </span>
           <span>
             TOPIK<span className="text-primary">Mate</span>
           </span>
-        </Link>
+          </Link>
+        </div>
 
         <nav className="hidden items-center gap-1 md:flex">
           {NAV.map((item) => (
