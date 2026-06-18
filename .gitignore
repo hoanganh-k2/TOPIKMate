@@ -11,8 +11,8 @@ prisma/dev.db-journal
 next-env.d.ts.timestamp
 public/uploads/*
 !public/uploads/.gitkeep
+# File nghe quá nặng (463MB) — không đưa lên git/Vercel. Cần host ở object storage (R2/Blob) sau.
+public/audio/
 
 /.claude
-/public
-/prisma
 /Sách TOPIK 300+_

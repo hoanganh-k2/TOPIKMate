@@ -1,13 +1,14 @@
 // Prisma schema cho TOPIKMate (v1 — chỉ TOPIK II)
-// Đổi sang Postgres sau này: chỉ cần đổi provider + DATABASE_URL.
+// Production dùng Postgres (Neon). Dev local có thể dùng Postgres cùng provider.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // chuỗi pooled (cho runtime)
+  directUrl = env("DIRECT_URL")   // chuỗi direct (cho migrate)
 }
 
 model User {
