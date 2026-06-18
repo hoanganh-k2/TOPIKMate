@@ -75,4 +75,4 @@ Exam
 
 ## Phạm vi hiện tại
 
-v1 tập trung **TOPIK II**. Dữ liệu kèm theo là **nội dung minh hoạ do AI tạo** (2 đề mẫu, ~38 từ vựng, ~26 mẫu ngữ pháp) — **không phải đề TOPIK chính thức**, hãy thay bằng đề thật khi có.
+v1 tập trung **TOPIK II**. Dữ liệu kèm theo là **nội dung minh hoạ** (2 đề mẫu, ~38 từ vựng, ~26 mẫu ngữ pháp) — **không phải đề TOPIK chính thức**, hãy thay bằng đề thật khi có.
