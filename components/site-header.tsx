@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { GraduationCap, Shield } from "lucide-react";
+import Image from "next/image";
+import { Shield } from "lucide-react";
 import { auth, signOut } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { MobileNav } from "@/components/mobile-nav";
@@ -13,13 +14,15 @@ export async function SiteHeader() {
       <div className="container flex h-16 items-center justify-between gap-4">
         <div className="flex items-center gap-1">
           <MobileNav />
-          <Link href="/" className="flex items-center gap-2 font-bold text-lg">
-          <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <GraduationCap className="size-5" />
-          </span>
-          <span>
-            TOPIK<span className="text-primary">Mate</span>
-          </span>
+          <Link href="/" className="flex items-center" aria-label="TOPIKMate — Trang chủ">
+            <Image
+              src="/logo.png"
+              alt="TOPIKMate"
+              width={856}
+              height={178}
+              priority
+              className="h-8 w-auto"
+            />
           </Link>
         </div>
 
