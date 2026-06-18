@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { cn, SECTION_LABEL } from "@/lib/utils";
+import { cn, SECTION_LABEL, topikLevelFromPercent } from "@/lib/utils";
 import { RichText } from "@/components/rich-text";
 
 export const dynamic = "force-dynamic";
@@ -55,6 +55,7 @@ export default async function ResultPage({
 
   const answerByQ = new Map(attempt.answers.map((a) => [a.questionId, a]));
   const percent = attempt.maxScore > 0 ? Math.round((attempt.score / attempt.maxScore) * 100) : 0;
+  const topikLevel = topikLevelFromPercent(percent);
 
   return (
     <div className="container max-w-4xl py-12">
@@ -68,6 +69,11 @@ export default async function ResultPage({
             <span className="text-2xl text-muted-foreground"> / {attempt.maxScore} điểm</span>
           </div>
           <p className="mt-2 text-muted-foreground">Đạt {percent}% tổng điểm</p>
+          <div className="mt-3 flex justify-center">
+            <Badge variant={topikLevel.level ? "default" : "outline"} className="text-sm">
+              Trình độ ước tính: {topikLevel.label}
+            </Badge>
+          </div>
           <div className="mt-6 flex justify-center gap-3">
             <Button asChild variant="outline">
               <Link href="/thi-thu">Đề thi khác</Link>

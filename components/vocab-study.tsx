@@ -10,11 +10,15 @@ import {
   Check,
   Repeat,
   AlarmClock,
+  Volume2,
+  CheckCircle2,
+  XCircle,
+  GraduationCap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { cn, speakKorean } from "@/lib/utils";
 import { markVocab } from "@/app/tu-vung/actions";
 
 interface VocabItem {
@@ -45,7 +49,7 @@ export function VocabStudy({
     [items]
   );
   const [level, setLevel] = useState<number | "ALL">("ALL");
-  const [mode, setMode] = useState<"card" | "list">("card");
+  const [mode, setMode] = useState<"card" | "list" | "quiz">("card");
   const [dueOnly, setDueOnly] = useState(false);
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -122,6 +126,9 @@ export function VocabStudy({
           <Button size="sm" variant={mode === "list" ? "default" : "outline"} onClick={() => setMode("list")}>
             <LayoutGrid className="size-4" /> Danh sách
           </Button>
+          <Button size="sm" variant={mode === "quiz" ? "default" : "outline"} onClick={() => setMode("quiz")}>
+            <GraduationCap className="size-4" /> Kiểm tra
+          </Button>
         </div>
       </div>
 
@@ -155,7 +162,21 @@ export function VocabStudy({
                 style={{ backfaceVisibility: "hidden" }}
               >
                 <Badge variant="secondary">Cấp {v.level}</Badge>
-                <span className="font-kr text-5xl font-bold">{v.korean}</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-kr text-5xl font-bold">{v.korean}</span>
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Phát âm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      speakKorean(v.korean);
+                    }}
+                    className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
+                  >
+                    <Volume2 className="size-5" />
+                  </span>
+                </div>
                 {v.reading && <span className="text-muted-foreground">[{v.reading}]</span>}
                 <span className="text-xs text-muted-foreground">Nhấn để xem nghĩa</span>
               </Card>
@@ -212,13 +233,25 @@ export function VocabStudy({
             </Button>
           </div>
         </div>
+      ) : mode === "quiz" ? (
+        <VocabQuiz items={filtered} loggedIn={loggedIn} onMark={mark} />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((item) => (
             <Card key={item.id}>
               <CardContent className="space-y-1 p-4">
                 <div className="flex items-center justify-between">
-                  <span className="font-kr text-xl font-bold">{item.korean}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-kr text-xl font-bold">{item.korean}</span>
+                    <button
+                      type="button"
+                      aria-label="Phát âm"
+                      onClick={() => speakKorean(item.korean)}
+                      className="text-muted-foreground transition-colors hover:text-primary"
+                    >
+                      <Volume2 className="size-4" />
+                    </button>
+                  </div>
                   <Badge variant="secondary">Cấp {item.level}</Badge>
                 </div>
                 {item.reading && (
@@ -233,6 +266,138 @@ export function VocabStudy({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Trộn mảng (Fisher–Yates) — trả về bản sao mới. */
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/**
+ * Chế độ kiểm tra: hiện từ tiếng Hàn, chọn nghĩa tiếng Việt đúng trong 4 lựa chọn.
+ * Mồi nhiễu ưu tiên lấy từ cùng cấp độ. Nếu đã đăng nhập, mỗi câu cập nhật SRS qua onMark.
+ */
+function VocabQuiz({
+  items,
+  loggedIn,
+  onMark,
+}: {
+  items: VocabItem[];
+  loggedIn: boolean;
+  onMark: (vocabId: string, result: "known" | "review") => void;
+}) {
+  // Danh sách câu hỏi + lựa chọn, tính một lần cho bộ items hiện tại.
+  const questions = useMemo(() => {
+    return shuffle(items).map((target) => {
+      const sameLevel = items.filter(
+        (i) => i.id !== target.id && i.level === target.level
+      );
+      const pool = sameLevel.length >= 3 ? sameLevel : items.filter((i) => i.id !== target.id);
+      const distractors = shuffle(pool).slice(0, 3).map((i) => i.meaningVi);
+      const options = shuffle([target.meaningVi, ...distractors]);
+      return { target, options };
+    });
+  }, [items]);
+
+  const [index, setIndex] = useState(0);
+  const [chosen, setChosen] = useState<string | null>(null);
+  const [stats, setStats] = useState({ correct: 0, answered: 0 });
+
+  if (items.length < 2) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center text-muted-foreground">
+          Cần ít nhất 2 từ để làm bài kiểm tra. Hãy chọn cấp độ khác hoặc thêm từ vựng.
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const q = questions[index % questions.length];
+  const answered = chosen !== null;
+
+  function pick(option: string) {
+    if (answered) return;
+    const isCorrect = option === q.target.meaningVi;
+    setChosen(option);
+    setStats((s) => ({ correct: s.correct + (isCorrect ? 1 : 0), answered: s.answered + 1 }));
+    if (loggedIn) onMark(q.target.id, isCorrect ? "known" : "review");
+  }
+
+  function nextQuestion() {
+    setChosen(null);
+    setIndex((i) => (i + 1) % questions.length);
+  }
+
+  return (
+    <div className="mx-auto max-w-xl space-y-4">
+      <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <span>
+          Câu {(index % questions.length) + 1} / {questions.length}
+        </span>
+        <span>
+          Đúng {stats.correct}/{stats.answered}
+        </span>
+      </div>
+
+      <Card>
+        <CardContent className="space-y-5 p-6">
+          <div className="flex items-center justify-center gap-2">
+            <Badge variant="secondary">Cấp {q.target.level}</Badge>
+            <button
+              type="button"
+              aria-label="Phát âm"
+              onClick={() => speakKorean(q.target.korean)}
+              className="text-muted-foreground transition-colors hover:text-primary"
+            >
+              <Volume2 className="size-4" />
+            </button>
+          </div>
+          <p className="text-center font-kr text-4xl font-bold">{q.target.korean}</p>
+
+          <div className="space-y-2.5">
+            {q.options.map((opt) => {
+              const isCorrect = opt === q.target.meaningVi;
+              const isChosen = chosen === opt;
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  disabled={answered}
+                  onClick={() => pick(opt)}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-lg border p-3.5 text-left transition-colors disabled:cursor-default",
+                    !answered && "hover:border-primary/40 hover:bg-muted/50",
+                    answered && isCorrect && "border-primary bg-accent",
+                    answered && isChosen && !isCorrect && "border-destructive bg-destructive/10"
+                  )}
+                >
+                  <span className="flex-1">{opt}</span>
+                  {answered && isCorrect && <CheckCircle2 className="size-5 text-primary" />}
+                  {answered && isChosen && !isCorrect && (
+                    <XCircle className="size-5 text-destructive" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {answered && (
+            <div className="flex justify-end">
+              <Button onClick={nextQuestion}>
+                Câu tiếp <ChevronRight className="size-4" />
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

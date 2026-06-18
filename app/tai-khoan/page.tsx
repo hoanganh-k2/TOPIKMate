@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScoreChart, type ScorePoint } from "@/components/score-chart";
-import { SECTION_LABEL } from "@/lib/utils";
+import { SECTION_LABEL, topikLevelFromPercent } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -112,7 +112,10 @@ export default async function AccountPage() {
             </span>
             <div>
               <p className="text-2xl font-bold">{Math.round(bestPercent)}%</p>
-              <p className="text-sm text-muted-foreground">Điểm cao nhất</p>
+              <p className="text-sm text-muted-foreground">
+                Điểm cao nhất
+                {totalAttempts > 0 && ` · ${topikLevelFromPercent(bestPercent).label}`}
+              </p>
             </div>
           </CardContent>
         </Card>

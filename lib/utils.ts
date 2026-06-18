@@ -18,3 +18,29 @@ export const SECTION_LABEL: Record<string, string> = {
   READING: "Đọc",
   WRITING: "Viết",
 };
+
+/**
+ * Quy đổi phần trăm điểm sang cấp độ TOPIK II tương đương.
+ * Thang chuẩn 0–300: ≥230 (≈77%) cấp 6, ≥190 (≈63%) cấp 5,
+ * ≥150 (50%) cấp 4, ≥120 (40%) cấp 3, dưới đó chưa đạt.
+ * Dùng % để áp dụng được cho cả đề có maxScore khác 300.
+ */
+export function topikLevelFromPercent(percent: number): {
+  level: number | null;
+  label: string;
+} {
+  if (percent >= 77) return { level: 6, label: "Cấp 6" };
+  if (percent >= 63) return { level: 5, label: "Cấp 5" };
+  if (percent >= 50) return { level: 4, label: "Cấp 4" };
+  if (percent >= 40) return { level: 3, label: "Cấp 3" };
+  return { level: null, label: "Chưa đạt cấp 3" };
+}
+
+/** Phát âm tiếng Hàn bằng Web Speech API của trình duyệt (không cần thư viện ngoài). */
+export function speakKorean(text: string) {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "ko-KR";
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(u);
+}
