@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Trash2, Plus, Image as ImageIcon, Music } from "lucide-react";
+import { ArrowLeft, Trash2, Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { SECTION_LABEL } from "@/lib/utils";
 import { QuestionForm } from "@/components/admin/question-form";
-import { updateExam, addSection, deleteSection, deleteQuestion } from "../../actions";
+import { QuestionListItem } from "@/components/admin/question-list-item";
+import { updateExam, addSection, deleteSection } from "../../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -140,44 +141,28 @@ export default async function ExamBuilderPage({
               {section.questions.length > 0 && (
                 <div className="space-y-2">
                   {section.questions.map((q, i) => (
-                    <div
+                    <QuestionListItem
                       key={q.id}
-                      className="flex items-start justify-between gap-3 rounded-lg border p-3"
-                    >
-                      <div className="min-w-0">
-                        <p className="font-kr text-sm">
-                          <span className="text-muted-foreground">Câu {i + 1}. </span>
-                          {q.prompt}
-                        </p>
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                          <span>{q.points} điểm</span>
-                          {q.type === "WRITING" && <Badge variant="outline">Tự luận</Badge>}
-                          {q.imageUrl && (
-                            <span className="inline-flex items-center gap-1">
-                              <ImageIcon className="size-3" /> ảnh
-                            </span>
-                          )}
-                          {q.audioUrl && (
-                            <span className="inline-flex items-center gap-1">
-                              <Music className="size-3" /> audio
-                            </span>
-                          )}
-                          {q.choices.length > 0 && (
-                            <span>
-                              {q.choices.length} đáp án · đúng:{" "}
-                              {q.choices.find((c) => c.isCorrect)?.label ?? "—"}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <form action={deleteQuestion}>
-                        <input type="hidden" name="examId" value={exam.id} />
-                        <input type="hidden" name="questionId" value={q.id} />
-                        <Button type="submit" variant="ghost" size="sm" className="text-destructive">
-                          <Trash2 className="size-4" />
-                        </Button>
-                      </form>
-                    </div>
+                      examId={exam.id}
+                      sectionId={section.id}
+                      index={i}
+                      question={{
+                        id: q.id,
+                        type: q.type,
+                        prompt: q.prompt,
+                        passage: q.passage,
+                        points: q.points,
+                        explanation: q.explanation,
+                        topic: q.topic,
+                        imageUrl: q.imageUrl,
+                        audioUrl: q.audioUrl,
+                        choices: q.choices.map((c) => ({
+                          label: c.label,
+                          content: c.content,
+                          isCorrect: c.isCorrect,
+                        })),
+                      }}
+                    />
                   ))}
                 </div>
               )}

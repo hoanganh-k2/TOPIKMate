@@ -11,3 +11,8 @@ prisma/dev.db-journal
 next-env.d.ts.timestamp
 public/uploads/*
 !public/uploads/.gitkeep
+
+/.claude
+/public
+/prisma
+/Sách TOPIK 300+_

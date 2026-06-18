@@ -6,12 +6,52 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { addQuestion } from "@/app/admin/actions";
+import { addQuestion, updateQuestion } from "@/app/admin/actions";
 
-export function QuestionForm({ examId, sectionId }: { examId: string; sectionId: string }) {
-  const [open, setOpen] = useState(false);
-  const [type, setType] = useState("MULTIPLE_CHOICE");
+export type QuestionFormData = {
+  id: string;
+  type: string;
+  prompt: string;
+  passage: string | null;
+  points: number;
+  explanation: string | null;
+  topic: string | null;
+  imageUrl: string | null;
+  audioUrl: string | null;
+  choices: { label: string; content: string; isCorrect: boolean }[];
+};
+
+export function QuestionForm({
+  examId,
+  sectionId,
+  question,
+  onDone,
+}: {
+  examId: string;
+  sectionId: string;
+  /** Có giá trị => chế độ SỬA; không có => chế độ THÊM. */
+  question?: QuestionFormData;
+  /** Gọi khi lưu xong hoặc huỷ (dùng cho chế độ sửa để đóng form). */
+  onDone?: () => void;
+}) {
+  const isEdit = !!question;
+  const [open, setOpen] = useState(isEdit);
+  const [type, setType] = useState(question?.type ?? "MULTIPLE_CHOICE");
   const formRef = useRef<HTMLFormElement>(null);
+
+  // Map đáp án hiện có theo nhãn 1..4 để điền sẵn.
+  const choiceContent = (i: number) =>
+    question?.choices.find((c) => c.label === String(i))?.content ?? "";
+  const correctIndex =
+    question?.choices.find((c) => c.isCorrect)?.label ?? "1";
+
+  function close() {
+    if (isEdit) {
+      onDone?.();
+    } else {
+      setOpen(false);
+    }
+  }
 
   if (!open) {
     return (
@@ -25,15 +65,21 @@ export function QuestionForm({ examId, sectionId }: { examId: string; sectionId:
     <form
       ref={formRef}
       action={async (fd) => {
-        await addQuestion(fd);
-        formRef.current?.reset();
-        setType("MULTIPLE_CHOICE");
-        setOpen(false);
+        if (isEdit) {
+          await updateQuestion(fd);
+          onDone?.();
+        } else {
+          await addQuestion(fd);
+          formRef.current?.reset();
+          setType("MULTIPLE_CHOICE");
+          setOpen(false);
+        }
       }}
       className="space-y-4 rounded-lg border bg-muted/30 p-4"
     >
       <input type="hidden" name="examId" value={examId} />
       <input type="hidden" name="sectionId" value={sectionId} />
+      {isEdit && <input type="hidden" name="questionId" value={question.id} />}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
@@ -49,29 +95,56 @@ export function QuestionForm({ examId, sectionId }: { examId: string; sectionId:
           </select>
         </div>
         <div className="space-y-2">
-          <Label htmlFor={`points-${sectionId}`}>Điểm</Label>
-          <Input id={`points-${sectionId}`} name="points" type="number" min={1} defaultValue={2} />
+          <Label htmlFor={`points-${sectionId}-${question?.id ?? "new"}`}>Điểm</Label>
+          <Input
+            id={`points-${sectionId}-${question?.id ?? "new"}`}
+            name="points"
+            type="number"
+            min={1}
+            defaultValue={question?.points ?? 2}
+          />
         </div>
       </div>
 
       <div className="space-y-2">
         <Label>Đề bài (tiếng Hàn)</Label>
-        <Textarea name="prompt" required placeholder="다음을 듣고..." className="font-kr" />
+        <Textarea
+          name="prompt"
+          required
+          placeholder="다음을 듣고..."
+          className="font-kr"
+          defaultValue={question?.prompt ?? ""}
+        />
       </div>
 
       <div className="space-y-2">
         <Label>Đoạn đọc / hội thoại (tuỳ chọn)</Label>
-        <Textarea name="passage" placeholder="Đoạn văn hoặc hội thoại..." className="font-kr" />
+        <Textarea
+          name="passage"
+          placeholder="Đoạn văn hoặc hội thoại..."
+          className="font-kr"
+          defaultValue={question?.passage ?? ""}
+        />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Ảnh minh hoạ (tuỳ chọn)</Label>
           <Input name="image" type="file" accept="image/*" />
+          {isEdit && question.imageUrl && (
+            <p className="text-xs text-muted-foreground">
+              Đang có ảnh. Tải file mới để thay thế.
+            </p>
+          )}
         </div>
         <div className="space-y-2">
           <Label>Audio nghe (tuỳ chọn)</Label>
           <Input name="audio" type="file" accept="audio/*" />
+          {isEdit && question.audioUrl && (
+            <p className="text-xs text-muted-foreground">
+              Đang có audio. Tải file mới để thay thế.
+            </p>
+          )}
         </div>
       </div>
 
@@ -84,12 +157,16 @@ export function QuestionForm({ examId, sectionId }: { examId: string; sectionId:
                 type="radio"
                 name="correct"
                 value={String(i)}
-                defaultChecked={i === 1}
+                defaultChecked={String(i) === correctIndex}
                 className="size-4 accent-[hsl(var(--primary))]"
                 title="Đáp án đúng"
               />
               <span className="w-5 text-sm font-medium text-muted-foreground">{i}.</span>
-              <Input name={`choice${i}`} placeholder={`Nội dung đáp án ${i}`} />
+              <Input
+                name={`choice${i}`}
+                placeholder={`Nội dung đáp án ${i}`}
+                defaultValue={choiceContent(i)}
+              />
             </div>
           ))}
         </div>
@@ -97,17 +174,25 @@ export function QuestionForm({ examId, sectionId }: { examId: string; sectionId:
 
       <div className="space-y-2">
         <Label>Giải thích (tiếng Việt, tuỳ chọn)</Label>
-        <Textarea name="explanation" placeholder="Giải thích đáp án..." />
+        <Textarea
+          name="explanation"
+          placeholder="Giải thích đáp án..."
+          defaultValue={question?.explanation ?? ""}
+        />
       </div>
 
       <div className="space-y-2">
         <Label>Chủ đề / nhãn dạng câu (tuỳ chọn)</Label>
-        <Input name="topic" placeholder="vd. Đọc hiểu — ý chính" />
+        <Input
+          name="topic"
+          placeholder="vd. Đọc hiểu — ý chính"
+          defaultValue={question?.topic ?? ""}
+        />
       </div>
 
       <div className="flex gap-2">
-        <Button type="submit">Lưu câu hỏi</Button>
-        <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+        <Button type="submit">{isEdit ? "Cập nhật câu hỏi" : "Lưu câu hỏi"}</Button>
+        <Button type="button" variant="ghost" onClick={close}>
           Huỷ
         </Button>
       </div>

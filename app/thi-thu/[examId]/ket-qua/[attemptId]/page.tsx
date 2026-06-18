@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn, SECTION_LABEL } from "@/lib/utils";
+import { RichText } from "@/components/rich-text";
 
 export const dynamic = "force-dynamic";
 
@@ -100,9 +101,9 @@ export default async function ResultPage({
                       ) : (
                         <XCircle className="mt-0.5 size-5 shrink-0 text-destructive" />
                       )}
-                      <CardTitle className="font-kr text-base font-medium leading-relaxed">
+                      <CardTitle className="font-kr text-lg font-medium leading-relaxed">
                         <span className="text-muted-foreground">Câu {idx + 1}. </span>
-                        {question.prompt}
+                        <RichText text={question.prompt} />
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
@@ -116,8 +117,8 @@ export default async function ResultPage({
                         </audio>
                       )}
                       {question.passage && (
-                        <div className="whitespace-pre-line rounded-lg bg-muted/60 p-3 font-kr text-sm">
-                          {question.passage}
+                        <div className="whitespace-pre-line rounded-lg bg-muted/60 p-3 font-kr text-base leading-relaxed">
+                          <RichText text={question.passage} />
                         </div>
                       )}
 
