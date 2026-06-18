@@ -5,6 +5,12 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { saveUpload } from "@/lib/upload";
+import {
+  parseExamsFile,
+  validateExam,
+  importExamData,
+  isParseError,
+} from "@/lib/exam-import";
 
 function str(v: FormDataEntryValue | null): string {
   return typeof v === "string" ? v.trim() : "";
@@ -53,6 +59,67 @@ export async function deleteExam(formData: FormData) {
   const examId = str(formData.get("examId"));
   await prisma.exam.delete({ where: { id: examId } });
   revalidatePath("/admin/de-thi");
+}
+
+/* -------------- NHẬP ĐỀ HÀNG LOẠT TỪ FILE (Excel / JSON) -------------- */
+
+export type ImportResult =
+  | { ok: true; message: string }
+  | { ok: false; errors: string[] }
+  | null;
+
+/**
+ * Server action cho `useActionState`: nhận file (.xlsx/.csv/.json) → parse thành
+ * `ExamSeed[]`, validate toàn bộ, rồi ghi đè theo title (idempotent giống db:import).
+ * Không ghi gì vào DB nếu còn bất kỳ lỗi nào.
+ */
+export async function bulkImportExams(
+  _prev: ImportResult,
+  formData: FormData,
+): Promise<ImportResult> {
+  await requireAdmin();
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, errors: ["Chưa chọn file."] };
+  }
+
+  // 1) Parse file → ExamSeed[]
+  let exams;
+  try {
+    exams = await parseExamsFile(file);
+  } catch (e) {
+    const msg = isParseError(e) ? e.message : `Không đọc được file: ${(e as Error).message}`;
+    return { ok: false, errors: [msg] };
+  }
+
+  // 2) Validate tất cả, fail sớm nếu có lỗi.
+  const errors = exams.flatMap(validateExam);
+  // Chặn trùng title ngay trong cùng 1 file (sẽ ghi đè lẫn nhau).
+  const seen = new Set<string>();
+  for (const ex of exams) {
+    if (seen.has(ex.title)) errors.push(`Trùng title trong file: "${ex.title}".`);
+    seen.add(ex.title);
+  }
+  if (errors.length) return { ok: false, errors };
+
+  // 3) Ghi đè theo title trong 1 transaction.
+  let sectionTotal = 0;
+  let questionTotal = 0;
+  await prisma.$transaction(async (tx) => {
+    for (const exam of exams) {
+      const { sectionCount, questionCount } = await importExamData(tx, exam);
+      sectionTotal += sectionCount;
+      questionTotal += questionCount;
+    }
+  });
+
+  revalidatePath("/admin/de-thi");
+  revalidatePath("/thi-thu");
+  return {
+    ok: true,
+    message: `Đã nhập ${exams.length} đề · ${sectionTotal} phần · ${questionTotal} câu hỏi.`,
+  };
 }
 
 /* ---------------- PHẦN THI ---------------- */
@@ -121,6 +188,53 @@ export async function addQuestion(formData: FormData) {
       imageUrl,
       audioUrl,
       choices: choices.length ? { create: choices } : undefined,
+    },
+  });
+  revalidatePath(`/admin/de-thi/${examId}`);
+}
+
+export async function updateQuestion(formData: FormData) {
+  await requireAdmin();
+  const examId = str(formData.get("examId"));
+  const questionId = str(formData.get("questionId"));
+  if (!questionId) throw new Error("Thiếu questionId.");
+  const type = str(formData.get("type")) || "MULTIPLE_CHOICE";
+  const prompt = str(formData.get("prompt"));
+  if (!prompt) throw new Error("Đề bài (prompt) không được để trống.");
+
+  // Chỉ thay ảnh/audio khi người dùng tải file mới, ngược lại giữ nguyên.
+  const newImageUrl = await saveUpload(formData.get("image") as File | null, "image");
+  const newAudioUrl = await saveUpload(formData.get("audio") as File | null, "audio");
+
+  const correct = str(formData.get("correct"));
+  const choices: { label: string; content: string; isCorrect: boolean }[] = [];
+  if (type === "MULTIPLE_CHOICE") {
+    for (let i = 1; i <= 4; i++) {
+      const content = str(formData.get(`choice${i}`));
+      if (content) {
+        choices.push({ label: String(i), content, isCorrect: correct === String(i) });
+      }
+    }
+    if (choices.length < 2) throw new Error("Cần ít nhất 2 đáp án.");
+    if (!choices.some((c) => c.isCorrect)) throw new Error("Hãy chọn một đáp án đúng.");
+  }
+
+  await prisma.question.update({
+    where: { id: questionId },
+    data: {
+      type,
+      prompt,
+      passage: str(formData.get("passage")) || null,
+      points: num(formData.get("points"), 2),
+      explanation: str(formData.get("explanation")) || null,
+      topic: str(formData.get("topic")) || null,
+      ...(newImageUrl ? { imageUrl: newImageUrl } : {}),
+      ...(newAudioUrl ? { audioUrl: newAudioUrl } : {}),
+      // Thay toàn bộ đáp án: xoá cũ rồi tạo lại theo dữ liệu mới.
+      choices: {
+        deleteMany: {},
+        ...(choices.length ? { create: choices } : {}),
+      },
     },
   });
   revalidatePath(`/admin/de-thi/${examId}`);

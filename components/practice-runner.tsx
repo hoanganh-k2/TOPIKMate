@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn, SECTION_LABEL } from "@/lib/utils";
+import { RichText } from "@/components/rich-text";
 
 interface PItem {
   id: string;
@@ -121,11 +122,13 @@ export function PracticeRunner({ items }: { items: PItem[] }) {
               <img src={q.imageUrl} alt="Hình minh hoạ" className="max-h-72 rounded-lg border" />
             )}
             {q.passage && (
-              <div className="whitespace-pre-line rounded-lg bg-muted/60 p-4 font-kr text-[15px] leading-relaxed">
-                {q.passage}
+              <div className="whitespace-pre-line rounded-lg bg-muted/60 p-4 font-kr text-lg leading-loose">
+                <RichText text={q.passage} />
               </div>
             )}
-            <p className="font-kr text-lg font-medium leading-relaxed">{q.prompt}</p>
+            <p className="font-kr text-xl font-medium leading-relaxed">
+              <RichText text={q.prompt} />
+            </p>
 
             <div className="space-y-2.5">
               {q.choices.map((c) => {
@@ -146,7 +149,7 @@ export function PracticeRunner({ items }: { items: PItem[] }) {
                     <span className="flex size-7 shrink-0 items-center justify-center rounded-full border text-sm font-semibold">
                       {c.label}
                     </span>
-                    <span className="flex-1 pt-0.5">{c.content}</span>
+                    <span className="flex-1 pt-0.5 font-kr text-lg">{c.content}</span>
                     {showResult && c.isCorrect && (
                       <CheckCircle2 className="size-5 text-primary" />
                     )}

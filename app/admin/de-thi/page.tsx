@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Pencil, Trash2, Plus, Upload } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { ExamImportForm } from "@/components/admin/exam-import-form";
 import { createExam, deleteExam } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -50,6 +51,21 @@ export default async function AdminExamsPage() {
               <Button type="submit">Tạo đề</Button>
             </div>
           </form>
+        </CardContent>
+      </Card>
+
+      {/* Nhập đề từ file */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Upload className="size-5" /> Nhập đề từ file
+          </CardTitle>
+          <CardDescription>
+            Tạo nhiều đề & câu hỏi cùng lúc từ Excel hoặc JSON — nhanh hơn nhập tay.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ExamImportForm />
         </CardContent>
       </Card>
 

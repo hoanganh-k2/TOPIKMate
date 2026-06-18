@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatTime, SECTION_LABEL } from "@/lib/utils";
+import { RichText } from "@/components/rich-text";
 
 interface Choice {
   id: string;
@@ -159,12 +160,14 @@ export function ExamRunner({ exam }: { exam: Exam }) {
             )}
 
             {q.passage && (
-              <div className="whitespace-pre-line rounded-lg bg-muted/60 p-4 font-kr text-[15px] leading-relaxed">
-                {q.passage}
+              <div className="whitespace-pre-line rounded-lg bg-muted/60 p-4 font-kr text-lg leading-loose">
+                <RichText text={q.passage} />
               </div>
             )}
 
-            <p className="font-kr text-lg font-medium leading-relaxed">{q.prompt}</p>
+            <p className="font-kr text-xl font-medium leading-relaxed">
+              <RichText text={q.prompt} />
+            </p>
 
             {q.type === "MULTIPLE_CHOICE" ? (
               <div className="space-y-2.5">
@@ -191,7 +194,7 @@ export function ExamRunner({ exam }: { exam: Exam }) {
                       >
                         {c.label}
                       </span>
-                      <span className="pt-0.5">{c.content}</span>
+                      <span className="pt-0.5 font-kr text-lg">{c.content}</span>
                     </button>
                   );
                 })}
